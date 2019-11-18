@@ -15,5 +15,44 @@ package com.tdsecurities.test
   */
 object TradeStreamScala {
 
-  def orderTrades(tradesStream: String*): Seq[String] = ???
+  /**
+   * Extracts Swap trades from trades stream. Sorts them lexicographically first,
+   * then sorts each Swap trade by verifying which contains contains "SELL" string.
+   * Finally the Swap trades are merged with the unchanged Cash trades.
+   *
+   * @param tradesStream - Trade stream containing Cash and/or Swap trades.
+   * @return Sorted Seq of Trades with Swap Trades merged on top of unchanged Cash
+   *         trades.
+   */
+  def orderTrades(tradesStream: String*): Seq[String] =
+  {
+    // Literal function for determining Swap trades in grouping.
+    val isSwapTrade = (trade:String) => trade.endsWith("SELL") || trade.endsWith("BUY")
+    // Group by swap and cash trades.
+    val swapAndCashTrades = tradesStream groupBy isSwapTrade
+
+    val selectSwapTrades = true
+    // Select Swap trades from grouped Map.
+    val swapTrades = swapAndCashTrades(selectSwapTrades)
+    // Select cash trades from grouped Map.
+    val cashTrades = swapAndCashTrades(!selectSwapTrades)
+
+    // Group by the Swap orderNumber.
+    val groupedTrades = swapTrades
+      .groupBy(_.split(" ")(0))
+      // To list to get our sorting functionality.
+      .toList
+      // Sort groups by the Swap orderNumber
+      .sortBy(_._1)
+
+    // Sort the list within the tuple subsets by whether or not the Swap trade
+    // ends with SELL string.
+    val sortedSubsets = groupedTrades
+      .map(_._2.sortWith( (swapOne, swapTwo) => {swapOne.endsWith("SELL")}))
+      // Reduce lists into single list.
+      .reduce(_ ++ _)
+
+    // Merge Swap trades on top of Cash trades.
+    sortedSubsets ++ cashTrades
+  }
 }
